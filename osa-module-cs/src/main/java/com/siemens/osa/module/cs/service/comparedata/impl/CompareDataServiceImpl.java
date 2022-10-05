@@ -159,9 +159,36 @@ public class CompareDataServiceImpl implements ICompareDataService {
                 getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
                         configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
                         esInfo.getResult(), status.toString()));
+            } else if (type == 2) {
+                System.out.println(esInfo.getRuleId());
+                if (esInfo.getRuleId().equals("BL999_3714"))
+                    status = multiFileProcessing(result, data, logger);
+                status = multiFileProcessing(result, data, logger);
+                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
+                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
+                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
+                        results, status.toString()));
+            } else if (type == 3) {
+                System.out.println(esInfo.getRuleId());
+                if (esInfo.getRuleId().equals("BL999_1429"))
+                    status = smallerDataProcessing(result, data, logger);
+                status = multiFileProcessing(result, data, logger);
+                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
+                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
+                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
+                        results, status.toString()));
+            } else if (type == 4) {
+                System.out.println(esInfo.getRuleId());
+                if (esInfo.getRuleId().equals("BL999_9200"))
+                    status = largerDataProcessing(result, data, logger);
+                status = multiFileProcessing(result, data, logger);
+                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
+                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
+                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
+                        results, status.toString()));
             } else {
                 System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_1878"))
+                if (esInfo.getRuleId().equals("BL999_3171"))
                     status = resultProcessing(result, data, logger);
                 status = resultProcessing(result, data, logger);
                 List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
@@ -248,6 +275,74 @@ public class CompareDataServiceImpl implements ICompareDataService {
             return STATUS.PASS;
         }
         return STATUS.FAILED;
+    }
+
+    public STATUS multiFileProcessing(List<String> result, List<String> data, Logger logger) {
+        STATUS status = STATUS.FAILED;
+        for (int i = 0; i < result.size(); i++) {
+            status = STATUS.FAILED;
+            String dataStr = data.get(i).replace(" ", "");
+            String results = result.get(i);
+            if (data.get(i).equals("")) {
+                if (!data.get(i).equals(results))
+                    return STATUS.FAILED;
+            } else {
+                String[] split = results.split("\n");
+                for (String res : split) {
+                    String re = res.replace(" ", "");
+                    if (!re.contains("#") && re.contains(dataStr)) {
+                        status = STATUS.PASS;
+                        break;
+                    }
+                }
+                if (status == STATUS.FAILED) {
+                    return status;
+                }
+            }
+        }
+        return status;
+    }
+
+    public STATUS smallerDataProcessing(List<String> result, List<String> data, Logger logger) {
+        for (int i = 0; i < result.size(); i++) {
+            String[] split = result.get(i).split("\n");
+            for (String res : split) {
+                int flag = 1;
+                if (res.contains("-"))
+                    flag = -1;
+                String re = res.replaceAll("\\D", "");
+                if (!re.equals("")) {
+                    int results = Integer.parseInt(re) * flag;
+                    int dataNum = Integer.parseInt(data.get(i));
+                    if (results > dataNum)
+                        return STATUS.FAILED;
+                } else {
+                    return STATUS.FAILED;
+                }
+            }
+        }
+        return STATUS.PASS;
+    }
+
+    public STATUS largerDataProcessing(List<String> result, List<String> data, Logger logger) {
+        for (int i = 0; i < result.size(); i++) {
+            String[] split = result.get(i).split("\n");
+            for (String res : split) {
+                int flag = 1;
+                if (res.contains("-"))
+                    flag = -1;
+                String re = res.replaceAll("\\D", "");
+                if (!re.equals("")) {
+                    int results = Integer.parseInt(re) * flag;
+                    int dataNum = Integer.parseInt(data.get(i));
+                    if (results < dataNum)
+                        return STATUS.FAILED;
+                } else {
+                    return STATUS.FAILED;
+                }
+            }
+        }
+        return STATUS.PASS;
     }
 
 }

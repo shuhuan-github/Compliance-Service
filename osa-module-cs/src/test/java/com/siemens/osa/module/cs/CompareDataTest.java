@@ -54,6 +54,7 @@ public class CompareDataTest {
     @Test
     public void check(){
         List<StatisticsInfo> allStatistics = getStatisticsServiceImpl.getAllStatistics();
+//        List<String> failedList = allStatistics.get(0).getPassList();
         List<String> failedList = allStatistics.get(0).getFailedList();
         Inet hostIp = allStatistics.get(0).getHostIp();
         Timestamp timestamp = allStatistics.get(0).getTimestamp();
