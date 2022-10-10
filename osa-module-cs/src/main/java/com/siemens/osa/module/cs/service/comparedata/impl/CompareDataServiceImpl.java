@@ -51,6 +51,44 @@ enum STATUS {
 
 }
 
+enum ResultType {
+
+    /**
+     * default type.
+     */
+    DEFAULT(0),
+    /**
+     * the result contains access.
+     */
+    ACCESS(1),
+    /**
+     * the result contains multiFiles data.
+     */
+    MULTI(2),
+    /**
+     * the data in result is <=.
+     */
+    SMALLER(3),
+    /**
+     * the data in result is >=.
+     */
+    LARGER(4);
+
+    /**
+     * value.
+     */
+    private final Integer value;
+
+    ResultType(final Integer values) {
+        this.value = values;
+    }
+
+    public Integer getValue() {
+        return value;
+    }
+
+}
+
 @Service
 public class CompareDataServiceImpl implements ICompareDataService {
 
@@ -150,55 +188,40 @@ public class CompareDataServiceImpl implements ICompareDataService {
             }
             StatisticsInfo statisticsInfo = timestampStatisticsInfoMap.get(timestamp);
             // determine whether the result type is "access"
-            if (type == 1) {
-                System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_2876"))
-                    status = accessResultProcessing(result, data, logger);
-                status = accessResultProcessing(result, data, logger);
-
-                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
-                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
-                        esInfo.getResult(), status.toString()));
-            } else if (type == 2) {
-                System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_3714"))
-                    status = multiFileProcessing(result, data, logger);
-                status = multiFileProcessing(result, data, logger);
-                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
-                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
-                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
-                        results, status.toString()));
-            } else if (type == 3) {
-                System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_1429"))
-                    status = smallerDataProcessing(result, data, logger);
-                status = multiFileProcessing(result, data, logger);
-                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
-                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
-                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
-                        results, status.toString()));
-            } else if (type == 4) {
-                System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_9200"))
-                    status = largerDataProcessing(result, data, logger);
-                status = multiFileProcessing(result, data, logger);
-                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
-                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
-                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
-                        results, status.toString()));
-            } else {
-                System.out.println(esInfo.getRuleId());
-                if (esInfo.getRuleId().equals("BL999_3171"))
-                    status = resultProcessing(result, data, logger);
-                status = resultProcessing(result, data, logger);
-                List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
-                getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
-                        configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
-                        results, status.toString()));
-            }
+            status = resultProcessing(type, result, data, logger);
+            List<String> results = esInfo.getResult().isEmpty() ? null : esInfo.getResult();
+            getResultServiceImpl.insertResult(new ResultInfo(1, timestamp, esInfo.getUtc(), id, configInfo.getOs(),
+                    configInfo.getLang(), new Inet(hostAddress), hostIp, esInfo.getRuleId(), configInfo.getData(),
+                    results, status.toString()));
             addList(status, statisticsInfo, esInfo.getRuleId());
         }
         getStatisticsServiceImpl.insertStatisticsMap(statistics);
+    }
+
+    /**
+     * deal with all types result.
+     * @param type
+     *            result type
+     * @param result
+     *            result data
+     * @param data
+     *            expected data
+     * @param logger
+     *            logger
+     * @return {@link STATUS}
+     */
+    public STATUS resultProcessing(Integer type, List<String> result, List<String> data, Logger logger) {
+        if (type.equals(ResultType.ACCESS.getValue())) {
+            return accessResultProcessing(result, data, logger);
+        } else if (type.equals(ResultType.MULTI.getValue())) {
+            return multiFileProcessing(result, data);
+        } else if (type.equals(ResultType.SMALLER.getValue())) {
+            return smallerDataProcessing(result, data);
+        } else if (type.equals(ResultType.LARGER.getValue())) {
+            return largerDataProcessing(result, data);
+        } else {
+            return defaultResultProcessing(result, data, logger);
+        }
     }
 
     /**
@@ -233,8 +256,9 @@ public class CompareDataServiceImpl implements ICompareDataService {
     public STATUS accessResultProcessing(List<String> result, List<String> data, Logger logger) {
         int index = 0;
         for (String re : result) {
-            if (re.equals(""))
+            if (re.equals("")) {
                 return STATUS.FAILED;
+            }
             List<String> strings = StringUtil.stringFliter(re);
             for (int i = 0; i < strings.size(); i++, index++) {
                 if (!strings.get(i).trim().equals(data.get(index))) {
@@ -259,7 +283,7 @@ public class CompareDataServiceImpl implements ICompareDataService {
      *            logger
      * @return {@link STATUS}
      */
-    public STATUS resultProcessing(List<String> result, List<String> data, Logger logger) {
+    public STATUS defaultResultProcessing(List<String> result, List<String> data, Logger logger) {
         if ((result.isEmpty() && data == null) || (!result.isEmpty() && data != null)) {
             if (data != null) {
                 for (int i = 0; i < result.size(); i++) {
@@ -277,24 +301,28 @@ public class CompareDataServiceImpl implements ICompareDataService {
         return STATUS.FAILED;
     }
 
-    public STATUS multiFileProcessing(List<String> result, List<String> data, Logger logger) {
+    /**
+     * multipleFileProcessing.
+     *
+     * @param result
+     *            results
+     * @param data
+     *            data
+     * @return {@link STATUS}
+     */
+    public STATUS multiFileProcessing(List<String> result, List<String> data) {
         STATUS status = STATUS.FAILED;
         for (int i = 0; i < result.size(); i++) {
-            status = STATUS.FAILED;
             String dataStr = data.get(i).replace(" ", "");
             String results = result.get(i);
             if (data.get(i).equals("")) {
-                if (!data.get(i).equals(results))
+                if (!data.get(i).equals(results)) {
                     return STATUS.FAILED;
-            } else {
-                String[] split = results.split("\n");
-                for (String res : split) {
-                    String re = res.replace(" ", "");
-                    if (!re.contains("#") && re.contains(dataStr)) {
-                        status = STATUS.PASS;
-                        break;
-                    }
+                } else {
+                    return STATUS.PASS;
                 }
+            } else {
+                status = multiFileProcess(results, dataStr);
                 if (status == STATUS.FAILED) {
                     return status;
                 }
@@ -303,19 +331,50 @@ public class CompareDataServiceImpl implements ICompareDataService {
         return status;
     }
 
-    public STATUS smallerDataProcessing(List<String> result, List<String> data, Logger logger) {
+    /**
+     * deal with multiFile result data.
+     *
+     * @param results
+     *            result data
+     * @param dataStr
+     *            expected data
+     * @return {@link STATUS}
+     */
+    public STATUS multiFileProcess(String results, String dataStr) {
+        String[] split = results.split("\n");
+        for (String res : split) {
+            String re = res.replace(" ", "");
+            if (!re.contains("#") && re.contains(dataStr)) {
+                return STATUS.PASS;
+            }
+        }
+        return STATUS.FAILED;
+    }
+
+    /**
+     * process result that the data is <=.
+     *
+     * @param result
+     *            result data
+     * @param data
+     *            expected data
+     * @return {@link STATUS}
+     */
+    public STATUS smallerDataProcessing(List<String> result, List<String> data) {
         for (int i = 0; i < result.size(); i++) {
             String[] split = result.get(i).split("\n");
             for (String res : split) {
                 int flag = 1;
-                if (res.contains("-"))
+                if (res.contains("-")) {
                     flag = -1;
+                }
                 String re = res.replaceAll("\\D", "");
                 if (!re.equals("")) {
                     int results = Integer.parseInt(re) * flag;
                     int dataNum = Integer.parseInt(data.get(i));
-                    if (results > dataNum)
+                    if (results > dataNum) {
                         return STATUS.FAILED;
+                    }
                 } else {
                     return STATUS.FAILED;
                 }
@@ -324,19 +383,30 @@ public class CompareDataServiceImpl implements ICompareDataService {
         return STATUS.PASS;
     }
 
-    public STATUS largerDataProcessing(List<String> result, List<String> data, Logger logger) {
+    /**
+     * process result that the data is >=.
+     *
+     * @param result
+     *            result data
+     * @param data
+     *            data
+     * @return {@link STATUS}
+     */
+    public STATUS largerDataProcessing(List<String> result, List<String> data) {
         for (int i = 0; i < result.size(); i++) {
             String[] split = result.get(i).split("\n");
             for (String res : split) {
                 int flag = 1;
-                if (res.contains("-"))
+                if (res.contains("-")) {
                     flag = -1;
+                }
                 String re = res.replaceAll("\\D", "");
                 if (!re.equals("")) {
                     int results = Integer.parseInt(re) * flag;
                     int dataNum = Integer.parseInt(data.get(i));
-                    if (results < dataNum)
+                    if (results < dataNum) {
                         return STATUS.FAILED;
+                    }
                 } else {
                     return STATUS.FAILED;
                 }
