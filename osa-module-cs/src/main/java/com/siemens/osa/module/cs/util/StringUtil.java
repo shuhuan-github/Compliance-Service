@@ -18,7 +18,7 @@ public final class StringUtil {
         String[] split = string.split("\n");
         List<String> strings = null;
         for (String str : split) {
-            if (str.contains("权限") || str.contains("Access")) {
+            if (str.contains("Uid") && str.contains("Gid")) {
                 String s1 = str.replaceAll("\\D", " ");
                 String s2 = s1.trim().replaceAll("\\s{1,}", " ");
                 String[] s3 = s2.split(" ");
